@@ -6,3 +6,7 @@ outputs/
 .venv/
 venv/
 env/
+
+# Allow committing the downloaded dataset and model artifacts when explicitly desired
+!data/sms_spam.csv
+!models/*.joblib
