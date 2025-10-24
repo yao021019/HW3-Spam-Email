@@ -1,8 +1,5 @@
 __pycache__/
 *.pyc
-data/
-models/
-outputs/
 .venv/
 venv/
 env/
