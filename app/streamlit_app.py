@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import streamlit as st
+import requests
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import (classification_report, confusion_matrix,
                              precision_recall_fscore_support)
@@ -37,6 +38,9 @@ DEFAULTS = {
     "seed": 42,
     "threshold": 0.5,
 }
+
+# fallback dataset URL (raw CSV)
+DATA_URL = "https://raw.githubusercontent.com/PacktPublishing/Hands-On-Artificial-Intelligence-for-Cybersecurity/refs/heads/master/Chapter03/datasets/sms_spam_no_header.csv"
 
 
 @st.cache_resource
@@ -213,6 +217,24 @@ def main():
                 except Exception as e:
                     st.error(f"Failed to read dataset at {p}: {e}")
 
+        # If no local dataset found, try to download the canonical dataset automatically
+        if df is None:
+            try:
+                os.makedirs(os.path.dirname("data/sms_spam.csv"), exist_ok=True)
+                r = requests.get(DATA_URL, timeout=15)
+                if r.status_code == 200 and r.content:
+                    with open("data/sms_spam.csv", "wb") as fh:
+                        fh.write(r.content)
+                    df = pd.read_csv("data/sms_spam.csv", header=None)
+                    # The canonical file may not have headers; try to normalize to 'label' and 'message'
+                    if df.shape[1] >= 2:
+                        df = df.rename(columns={0: 'label', 1: 'message'})
+                    st.info("Downloaded dataset automatically to data/sms_spam.csv")
+                else:
+                    st.info("No dataset found locally and automatic download failed.")
+            except Exception:
+                st.info("No dataset found locally and automatic download failed.")
+
         # Detect likely label/text columns if provided hints are wrong
         detected_label, detected_text = (None, None)
         if df is not None:
@@ -354,7 +376,27 @@ def main():
                     X_test = vec_local.transform(X_test_text)
 
             if model is None:
-                st.warning("No trained model found in models dir. Training must be executed separately.")
+                # If no persisted model is available, fit a quick fallback model on the dataset so the demo can run
+                st.warning("No trained model found in models dir. Training a small fallback model on the dataset for demo purposes...")
+                try:
+                    fallback_vec = TfidfVectorizer(max_features=10000, ngram_range=(1, 2), min_df=2)
+                    X_all = fallback_vec.fit_transform(df[text_col].astype(str).tolist())
+                    y_all, _ = map_labels(df[label_col])
+                    from sklearn.linear_model import LogisticRegression
+                    fallback_model = LogisticRegression(max_iter=1000, class_weight='balanced', solver='liblinear')
+                    fallback_model.fit(X_all, y_all)
+                    model = fallback_model
+                    vec = fallback_vec
+                    # Save artifacts to models dir if possible
+                    try:
+                        os.makedirs(model_dir, exist_ok=True)
+                        joblib.dump(vec, os.path.join(model_dir, 'vectorizer.joblib'))
+                        joblib.dump(model, os.path.join(model_dir, 'logistic_regression.joblib'))
+                    except Exception:
+                        pass
+                    st.success("Fallback model trained and ready for demo (saved to models/ if writable).")
+                except Exception as e:
+                    st.error(f"Failed to train fallback model: {e}")
             else:
                 probs = get_probs(model, X_test)
                 # compute predicted class using threshold, apply invert toggle if requested
