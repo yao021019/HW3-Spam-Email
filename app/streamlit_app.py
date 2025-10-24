@@ -395,6 +395,46 @@ def main():
                     except Exception:
                         pass
                     st.success("Fallback model trained and ready for demo (saved to models/ if writable).")
+                    # After training the fallback model, run the same evaluation pipeline so the performance section is populated
+                    try:
+                        probs = get_probs(model, X_test)
+                        # compute predicted class using threshold, apply invert toggle if requested
+                        if invert_pred:
+                            preds = (probs < threshold).astype(int)
+                        else:
+                            preds = (probs >= threshold).astype(int)
+                        cm = confusion_matrix(y_test, preds)
+                        st.subheader("Confusion matrix")
+                        fig_cm, ax_cm = plt.subplots()
+                        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax_cm)
+                        ax_cm.set_xlabel("Predicted")
+                        ax_cm.set_ylabel("Actual")
+                        st.pyplot(fig_cm)
+
+                        # ROC curve
+                        try:
+                            from sklearn.metrics import roc_curve, auc
+
+                            fpr, tpr, _ = roc_curve(y_test, probs)
+                            roc_auc = auc(fpr, tpr)
+                            fig_roc, ax_roc = plt.subplots()
+                            ax_roc.plot(fpr, tpr, label=f"AUC = {roc_auc:.3f}")
+                            ax_roc.plot([0, 1], [0, 1], linestyle="--", color="gray")
+                            ax_roc.set_xlabel("False Positive Rate")
+                            ax_roc.set_ylabel("True Positive Rate")
+                            ax_roc.legend()
+                            st.subheader("ROC curve")
+                            st.pyplot(fig_roc)
+                        except Exception:
+                            st.info("Could not compute ROC curve for this model")
+
+                        st.subheader("Threshold sweep (precision/recall/f1)")
+                        thresholds = np.linspace(0.01, 0.99, 50)
+                        df_thresh = compute_threshold_metrics(y_test, probs, thresholds)
+                        st.dataframe(df_thresh)
+                        st.line_chart(df_thresh.set_index("threshold")[['precision','recall','f1']])
+                    except Exception:
+                        st.info("Could not evaluate fallback model on test split.")
                 except Exception as e:
                     st.error(f"Failed to train fallback model: {e}")
             else:
