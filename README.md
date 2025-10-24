@@ -34,3 +34,7 @@ streamlit run app/streamlit_app.py
 Notes:
 - Model artifacts and data are ignored by `.gitignore`. Keep models in `models/` and outputs in `outputs/`.
 - This baseline is meant to be small and reproducible; follow-up changes should add tests, CI, and model export conventions.
+
+## Demo Site
+
+You can find a live demo of the Streamlit app here: https://hw3-spam-email-aweicrrgsaohtwxwin28hw.streamlit.app/
