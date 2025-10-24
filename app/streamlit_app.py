@@ -377,7 +377,6 @@ def main():
 
             if model is None:
                 # If no persisted model is available, fit a quick fallback model on the dataset so the demo can run
-                st.warning("No trained model found in models dir. Training a small fallback model on the dataset for demo purposes...")
                 try:
                     fallback_vec = TfidfVectorizer(max_features=10000, ngram_range=(1, 2), min_df=2)
                     X_all = fallback_vec.fit_transform(df[text_col].astype(str).tolist())
@@ -394,7 +393,7 @@ def main():
                         joblib.dump(model, os.path.join(model_dir, 'logistic_regression.joblib'))
                     except Exception:
                         pass
-                    st.success("Fallback model trained and ready for demo (saved to models/ if writable).")
+                    # Fallback model trained (artifacts saved to models/ if writable). UI messages suppressed by default.
                     # After training the fallback model, run the same evaluation pipeline so the performance section is populated
                     try:
                         probs = get_probs(model, X_test)
